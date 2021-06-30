@@ -1,4 +1,6 @@
 import csv
+import numpy as np
+import matplotlib.pyplot as plt
 
 class DAL:
     """ Class that provide Data abstraction layer, thus provide free acess to data"""
@@ -29,10 +31,31 @@ class DAL:
     def info(self) -> dict:
         """! Get info of data """
 
-    def len_info(self) -> dict:
-        """! Get len info"""
+    def len_info(self, plot : bool = False) -> dict:
+        """! Get len info and plot histogram
+            @param plot (optional) if true plot histogram
+            @return dict(min, max, mean, std, 95% interval)"""
+        
+        # Get lengths, mean and std
+        lengths = np.array([len(text.split(" ")) for _, text in self.get()])
+        mean = np.mean(lengths)
+        std = np.std(lengths)
+        
+        # Assuming normal distribution 95% interval
+        recomended = int(mean + 2*std)
+
+        # Histogram
+        if plot:
+            plt.hist(lengths, bins=np.arange(min(lengths), max(lengths), 100))
+            plt.title("Text length Histogram (in number of words)")
+            plt.ylabel("Number of samples")
+            plt.xlabel("Text length (in words)")
+            plt.axvline(recomended, color = 'r')
+            plt.show()
+        return {"min" : np.min(lengths), "max": max(lengths), "mean": mean, "std": std, "recomended": recomended}
 
 
 if __name__ == "__main__":
     data = DAL("data.csv")
     print(data.getGrouped().keys())
+    print(data.len_info(True))
