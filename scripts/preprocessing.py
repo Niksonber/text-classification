@@ -4,6 +4,7 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.stem.snowball import SnowballStemmer
 from nltk import download
+from difflib import get_close_matches
 
 download('punkt')
 download('stopwords')
@@ -38,7 +39,58 @@ class Preprocessor:
         stemmed = [porter.stem(word) for word in words[:max_len]]
         return stemmed
 
+class OneHotEndoder:
+    def __init__(self) -> None:
+        # Start of string
+        self.SOS = "__SOS__"
+
+        #end of string
+        self.EOS = "__EOS__"
+
+        # encoder
+        self._word2index = {self.SOS:0, self.EOS: 1}
+        #number of words
+        self._nWords = 2
+    
+    """! Generate one hot encoder from data
+        @param data list of preprocessed list of words
+        @return dictionary of one hot encoder"""
+    def generate(self, data) -> dict:
+        for sample in data:
+            for word in sample:
+                self.add(word)
+        return self._word2index
+
+    """! If not encoded, add to dictionary
+        @param word"""
+    def add(self, word:str) -> None:
+        if word not in self._word2index:
+            self._word2index[word] = self._nWords
+            self._nWords += 1
+
+    """! Get index of word or closest word
+        @param word @return index of word"""
+    def get(self, word:str) -> int:
+        if  word not in self._word2index:
+            return self._word2index[word]
+        return get_close_matches(word, self._word2index)[0]
+
+    """! Get index list of sample
+    @param sample list of words @return index list"""
+    def getSample(self, sample:list) -> list:
+        return [self.get(word) for word in sample]
+
+    """! Return number of words in dictionary"""
+    @property
+    def nWords(self) -> int:
+        return self._nWords
+
+        
 
 if __name__ == "__main__":
     p = Preprocessor()
-    print(p.preprocess("this is not a test of my mother"))
+    xp = p.preprocess("this is not a test of my mother")
+    print(xp)
+    encoder = OneHotEndoder()
+    encoder.generate([xp])
+    print(encoder.nWords)
