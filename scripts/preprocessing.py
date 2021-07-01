@@ -1,5 +1,6 @@
 import re
 import string
+import numpy as np
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.stem.snowball import SnowballStemmer
@@ -75,10 +76,19 @@ class OneHotEndoder:
             return self._word2index[word]
         return get_close_matches(word, self._word2index)[0]
 
-    """! Get index list of sample
-    @param sample list of words @return index list"""
-    def getSample(self, sample:list) -> list:
-        return [self.get(word) for word in sample]
+    """! Get index list of sample adding SOS and EOS
+        @param sample list of words @param size sequence size
+        @return index list"""
+    def encodeSample(self, sample:list, size:int) -> list:
+        length = len(sample) if len(sample) < size else size - 1
+        complement = size - length
+        sequence = [self.SOS] + [self.get(word) for word in sample][:length] + complement*[self.EOS]
+    
+    """! Get index list of multiple samples
+        @param data list of list of words @param size sequence size
+        @return encoded data"""
+    def encodeSamples(self, data:list, size:int) -> np.ndarray:
+        return np.array([self.encodeSample(sample) for sample in data])
 
     """! Return number of words in dictionary"""
     @property
