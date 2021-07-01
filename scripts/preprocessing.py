@@ -1,106 +1,129 @@
 import re
 import string
+
 import numpy as np
+import matplotlib.pyplot as plt
+
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.stem.snowball import SnowballStemmer
 from nltk import download
+
+from typing import overload
+from abc import ABC, abstractmethod
 from difflib import get_close_matches
 
 download('punkt')
 download('stopwords')
 
-
-"""! Preprocess text, splitting words, removing ponctuation, crop sequence and stem"""
+"""! Mother class of all preprocessors"""
 class Preprocessor:
     def __init__(self) -> None:
         pass
+    
+    """! process input prototype """
+    @abstractmethod
+    def processSample(self, x):
+        pass
+    
+    """! """
+    def process(self, x:list) -> list:
+        return [self.processSample(sample) for sample in x]
 
-    """! Split words, lower case, remove punctuation, remove stopwords and stem
-        @param text target text @param max_len max (optional) length of sequence """
-    def preprocess(self, text, max_len = None) -> list:
-        # remove spaces
-        tokens = word_tokenize(text)
-
-        # convert to lower case
-        tokens = [w.lower() for w in tokens]
-
-        # remove punctuation from each word
-        re_punc = re.compile('[%s]'% re.escape(string.punctuation))
-        stripped = [re_punc.sub('', w) for w in tokens]
-       
-        # remove remaining tokens that are not alphabetic
-        words = [word for word in stripped if word.isalpha()]
-        # filter out stop words
-        stop_words = set(stopwords.words('english'))
-        words = [w for w in words if not w in stop_words]
-
-        #stem and crop sequence
-        porter = SnowballStemmer("english")
-        stemmed = [porter.stem(word) for word in words[:max_len]]
-        return stemmed
-
-class OneHotEndoder:
+"""! Split text in words"""
+class Tokenize(Preprocessor):
     def __init__(self) -> None:
-        # Start of string
-        self.SOS = "__SOS__"
+        super().__init__()
 
-        #end of string
-        self.EOS = "__EOS__"
+    """! Split text in words
+        @param x text
+        @return words lists"""
+    def processSample(self, sample:str) -> list:
+        return word_tokenize(sample)
 
-        # encoder
-        self._word2index = {self.SOS:0, self.EOS: 1}
-        #number of words
-        self._nWords = 2
+"""! Normalize inputs, transforming in lower case, removing punctuation and non-alphanumeric words"""
+class Normalize(Preprocessor):
+    def __init__(self) -> None:
+        super().__init__()
+
+    """! 
+        @param x words list
+        @return words lists of low case, alphanumeric words without punctuation an"""
+    def processSample(self, sample:list) -> list:
+        # used to remove punctuation
+        punctuation_re = re.compile('[%s]'% re.escape(string.punctuation))
+        # lower case
+        sample = [word.lower() for word in sample]
+        # remove punctuation
+        sample = [punctuation_re.sub('', word) for word in sample]
+        # remove all words that have non-alphanumeric characters
+        sample = [word for word in sample if word.isalpha()]
     
-    """! Generate one hot encoder from data
-        @param data list of preprocessed list of words
-        @return dictionary of one hot encoder"""
-    def generate(self, data) -> dict:
-        for sample in data:
-            for word in sample:
-                self.add(word)
-        return self._word2index
+        return sample
 
-    """! If not encoded, add to dictionary
-        @param word"""
-    def add(self, word:str) -> None:
-        if word not in self._word2index:
-            self._word2index[word] = self._nWords
-            self._nWords += 1
-
-    """! Get index of word or closest word
-        @param word @return index of word"""
-    def get(self, word:str) -> int:
-        if  word not in self._word2index:
-            return self._word2index[word]
-        return get_close_matches(word, self._word2index)[0]
-
-    """! Get index list of sample adding SOS and EOS
-        @param sample list of words @param size sequence size
-        @return index list"""
-    def encodeSample(self, sample:list, size:int) -> list:
-        length = len(sample) if len(sample) < size else size - 1
-        complement = size - length
-        sequence = [self.SOS] + [self.get(word) for word in sample][:length] + complement*[self.EOS]
+"""! Remove stop words"""
+class RemoveStopWords(Preprocessor):
+    def __init__(self, language = 'english') -> None:
+        super().__init__()
+        self._language = language
     
-    """! Get index list of multiple samples
-        @param data list of list of words @param size sequence size
-        @return encoded data"""
-    def encodeSamples(self, data:list, size:int) -> np.ndarray:
-        return np.array([self.encodeSample(sample) for sample in data])
+    """! Remove stop words
+        @param x words list
+        @return words list without non-significative words"""
+    def processSample(self, sample:list) -> list:
+        stop_words = set(stopwords.words(self._language))
+        return [word for word in sample if not word in stop_words]
 
-    """! Return number of words in dictionary"""
-    @property
-    def nWords(self) -> int:
-        return self._nWords
+"""!  Stem words """
+class Steamer(Preprocessor):
+    def __init__(self, language = 'english') -> None:
+        super().__init__()
+        self._porter = SnowballStemmer(language)
+    
+    """! Stem words
+    @param x words list
+    @return words list without non-significative variations"""
+    def processSample(self, sample:list) -> list:
+        stop_words = set(stopwords.words(self._language))
+        return [self._porter.stem(word) for word in sample]
 
-        
+"""! Break sequence length in in mean + 2 * std """
+class BreakSequence(Preprocessor):
+    def __init__(self, plot:bool = False) -> None:
+        super().__init__()
+        self._plot = plot
+    
 
+    """! Break sequence in indicated size
+    @param x list of words list
+    @return list od words list with croped length"""
+    def process(self, x:list) -> list:
+        lengths = [len(sample) for sample in x]
+        std = np.std(lengths)
+        mean = np.mean(lengths)
+        # 95% interval (assuming gaussian distribuition)
+        recommended = int(mean + 2 * std)
+
+        # Histogram
+        if self._plot:
+            plt.hist(lengths, bins=np.arange(min(lengths), max(lengths), 20))
+            plt.title("Comprimento dos textos pré-processados (em número de palavras)")
+            plt.ylabel("Numero de amostras")
+            plt.xlabel("Comprimento do texto (rm palavras)")
+            plt.axvline(recommended, color = 'r')
+            plt.show()
+
+        print({"min" : np.min(lengths), "max": max(lengths), "mean": mean, "std": std, "recomended": recommended})
+        return [ sample[:recommended] for sample in x ]
+    
+
+"""!  Join words list in text"""
+class Join(Preprocessor):
+    """! Join words list in text
+    @param x words list
+    @return text joined with space"""
+    def processSample(self, sample:list) -> str:
+        return [" ".join(words) for words in sample]
+    
 if __name__ == "__main__":
-    p = Preprocessor()
-    xp = p.preprocess("this is not a test of my mother")
-    print(xp)
-    encoder = OneHotEndoder()
-    encoder.generate([xp])
-    print(encoder.nWords)
+    pass
