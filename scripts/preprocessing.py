@@ -9,6 +9,9 @@ from nltk.tokenize import word_tokenize
 from nltk.stem.snowball import SnowballStemmer
 from nltk import download
 
+from keras.preprocessing.text import Tokenizer
+from keras.preprocessing.sequence import pad_sequences
+
 from typing import List
 from abc import ABC, abstractmethod
 
@@ -158,6 +161,18 @@ class Join(Preprocessor):
     @return text joined with space"""
     def processSample(self, sample:list) -> str:
         return [" ".join(words) for words in sample]
+
+"""! Encode samples and add padding"""
+class Words2index:
+
+    """! Encode samples and add padding
+        @param x texx list
+        @return sequence of int list """
+    def process(self, x: list) -> list:
+        tokenizer=Tokenizer()
+        tokenizer.fit_on_texts(x)
+        x=tokenizer.texts_to_sequences(x)
+        return pad_sequences(x, padding="post")
 
 if __name__ == "__main__":
     pass
