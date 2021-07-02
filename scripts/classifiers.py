@@ -17,7 +17,7 @@ class Classsifier:
 
     def pre_process(self, x):
         for preprocessor in self._preprocessors:
-            x = preprocessor.preprocess(x)
+            x = preprocessor.process(x)
         return x
     
     def train(self, x, y, proportion = 0.3):
@@ -31,10 +31,10 @@ class Classsifier:
         print("Total data for training: {}, For testing: {} \n".format(len(y_train), len(y_test)))
         
         #train model
-        self.model.fit(x_train, to_categorical(y_train))
+        self._model.fit(x_train, to_categorical(y_train), epochs=5)
 
         # Evaluate model
-        y_pred = self.model.predict(x_test)
+        y_pred = np.argmax(self._model.predict(x_test), axis=-1)
         cm = confusion_matrix(y_test, y_pred)
         print(classification_report(y_test, y_pred))
         print("Confusion matrix: \n\n{}".format(cm))
