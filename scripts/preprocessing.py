@@ -9,9 +9,8 @@ from nltk.tokenize import word_tokenize
 from nltk.stem.snowball import SnowballStemmer
 from nltk import download
 
-from typing import overload
+from typing import List
 from abc import ABC, abstractmethod
-from difflib import get_close_matches
 
 download('punkt')
 download('stopwords')
@@ -116,6 +115,41 @@ class BreakSequence(Preprocessor):
         print({"min" : np.min(lengths), "max": max(lengths), "mean": mean, "std": std, "recomended": recommended})
         return [ sample[:recommended] for sample in x ]
     
+"""! Dry rare words"""
+class Dry(Preprocessor):
+    def __init__(self, min_occ:int = 4) -> None:
+        super().__init__()
+        self._wordCount = {}
+        self._words = []
+        self.min_occ = min_occ
+    
+    """! Generate counter of each word
+    @param data list of preprocessed list of words
+    @return dictionary of one hot encoder"""
+    def generate(self, data) -> dict:
+        for sample in data:
+            for word in sample:
+                if word in self._wordCount:
+                    self._wordCount[word] += 1
+                else:
+                    self._wordCount[word] = 1
+
+        #filter rare words
+        self._words = [key for key, value in self._wordCount.items() if value > self.min_occ]
+        return self._wordCount
+
+    """! Remove rare words
+    @param x words list
+    @return words list without rare words"""
+    def processSample(self, sample:list) -> list:
+        return [word for word in sample if word in self._words]
+
+    """! Remove rare words
+    @param x list of words list
+    @return list od words list without rare words"""
+    def process(self, x: list) -> list:
+        self.generate(x)
+        return super().process(x)
 
 """!  Join words list in text"""
 class Join(Preprocessor):
@@ -124,6 +158,6 @@ class Join(Preprocessor):
     @return text joined with space"""
     def processSample(self, sample:list) -> str:
         return [" ".join(words) for words in sample]
-    
+
 if __name__ == "__main__":
     pass
