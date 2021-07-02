@@ -81,7 +81,7 @@ class Steamer(Preprocessor):
     def __init__(self, language = 'english') -> None:
         super().__init__()
         self._porter = SnowballStemmer(language)
-    
+        self._language = language
     """! Stem words
     @param x words list
     @return words list without non-significative variations"""
@@ -156,6 +156,7 @@ class Dry(Preprocessor):
 
 """!  Join words list in text"""
 class Join(Preprocessor):
+    
     """! Join words list in text
     @param x words list
     @return text joined with space"""
@@ -172,7 +173,7 @@ class Words2index:
         tokenizer=Tokenizer()
         tokenizer.fit_on_texts(x)
         x=tokenizer.texts_to_sequences(x)
-        return pad_sequences(x, padding="post")
+        return pad_sequences(x, maxlen=427, padding="post")
 
 if __name__ == "__main__":
     pass
